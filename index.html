@@ -1,0 +1,1178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#0f172a">
+<title>PRF Manager</title>
+<link rel="manifest" href="manifest.json">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.8.2/jspdf.plugin.autotable.min.js"></script>
+<style>
+  :root {
+    --bg: #0f172a;
+    --surface: #1e293b;
+    --surface2: #273549;
+    --border: #334155;
+    --primary: #3b82f6;
+    --primary-dark: #2563eb;
+    --danger: #ef4444;
+    --warning: #f59e0b;
+    --success: #22c55e;
+    --text: #f1f5f9;
+    --text-muted: #94a3b8;
+    --radius: 12px;
+    --safe-top: env(safe-area-inset-top, 0px);
+    --safe-bottom: env(safe-area-inset-bottom, 0px);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 16px; overflow: hidden; }
+
+  /* ── Layout ── */
+  #app { display: flex; flex-direction: column; height: 100vh; height: 100dvh; }
+  #header {
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    padding: calc(var(--safe-top) + 12px) 16px 12px;
+    display: flex; align-items: center; gap: 12px;
+    flex-shrink: 0;
+  }
+  #header h1 { font-size: 17px; font-weight: 700; flex: 1; }
+  #header .subtitle { font-size: 12px; color: var(--text-muted); }
+  #content { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 16px; }
+  #footer-nav {
+    background: var(--surface);
+    border-top: 1px solid var(--border);
+    display: flex;
+    padding-bottom: var(--safe-bottom);
+    flex-shrink: 0;
+  }
+  .nav-btn {
+    flex: 1; background: none; border: none; color: var(--text-muted);
+    padding: 10px 4px 8px; display: flex; flex-direction: column; align-items: center;
+    gap: 3px; font-size: 10px; cursor: pointer; transition: color .2s;
+  }
+  .nav-btn svg { width: 22px; height: 22px; }
+  .nav-btn.active { color: var(--primary); }
+
+  /* ── Cards & Controls ── */
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; margin-bottom: 12px; }
+  .card-title { font-size: 13px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 12px; }
+  .btn { display: inline-flex; align-items: center; gap: 6px; padding: 10px 16px; border-radius: 8px; border: none; font-size: 14px; font-weight: 600; cursor: pointer; transition: opacity .15s, transform .1s; }
+  .btn:active { transform: scale(.97); opacity: .85; }
+  .btn-primary { background: var(--primary); color: #fff; }
+  .btn-danger { background: var(--danger); color: #fff; }
+  .btn-ghost { background: var(--surface2); color: var(--text); }
+  .btn-success { background: var(--success); color: #fff; }
+  .btn-warning { background: var(--warning); color: #000; }
+  .btn-full { width: 100%; justify-content: center; margin-bottom: 10px; }
+  .btn svg { width: 16px; height: 16px; flex-shrink: 0; }
+
+  input, select, textarea {
+    width: 100%; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px;
+    color: var(--text); padding: 10px 12px; font-size: 15px; outline: none;
+    transition: border-color .2s; -webkit-appearance: none; appearance: none;
+  }
+  input:focus, select:focus, textarea:focus { border-color: var(--primary); }
+  textarea { resize: vertical; min-height: 80px; font-family: inherit; }
+  label { display: block; font-size: 13px; color: var(--text-muted); margin-bottom: 4px; }
+  .field { margin-bottom: 14px; }
+  .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .field-row3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; }
+
+  /* ── PRF Item ── */
+  .prf-item {
+    background: var(--surface2); border: 1px solid var(--border); border-radius: 10px;
+    padding: 14px; margin-bottom: 10px; cursor: pointer; transition: border-color .2s;
+  }
+  .prf-item:hover, .prf-item:active { border-color: var(--primary); }
+  .prf-item-header { display: flex; justify-content: space-between; align-items: flex-start; }
+  .prf-item-name { font-weight: 700; font-size: 15px; }
+  .prf-item-time { font-size: 12px; color: var(--text-muted); }
+  .prf-item-complaint { font-size: 13px; color: var(--text-muted); margin-top: 4px; }
+  .badge {
+    display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 11px; font-weight: 700;
+  }
+  .badge-red { background: #7f1d1d; color: #fca5a5; }
+  .badge-amber { background: #78350f; color: #fcd34d; }
+  .badge-green { background: #14532d; color: #86efac; }
+  .badge-blue { background: #1e3a5f; color: #93c5fd; }
+
+  /* ── Day item ── */
+  .day-item {
+    background: var(--surface2); border: 1px solid var(--border); border-radius: 10px;
+    padding: 16px; margin-bottom: 10px; cursor: pointer; transition: border-color .2s;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .day-item:hover { border-color: var(--primary); }
+  .day-item-left .day-label { font-weight: 700; font-size: 16px; }
+  .day-item-left .day-date { font-size: 13px; color: var(--text-muted); margin-top: 2px; }
+  .day-item-right { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+  .day-count { font-size: 13px; color: var(--text-muted); }
+  .risk-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--warning); }
+
+  /* ── Vitals grid ── */
+  .vitals-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .vital-box { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 8px; }
+  .vital-box label { font-size: 11px; color: var(--text-muted); margin-bottom: 2px; }
+  .vital-box input { padding: 6px 8px; font-size: 14px; }
+
+  /* ── Section divider ── */
+  .section-title { font-size: 16px; font-weight: 700; margin-bottom: 12px; margin-top: 4px; display: flex; align-items: center; gap: 8px; }
+  .section-title svg { width: 18px; height: 18px; color: var(--primary); }
+
+  /* ── GDPR notice ── */
+  .gdpr-notice { background: #1a2744; border: 1px solid #2563eb44; border-radius: 10px; padding: 12px 14px; font-size: 13px; color: var(--text-muted); margin-bottom: 16px; }
+  .gdpr-notice strong { color: var(--text); }
+
+  /* ── Risk log ── */
+  .risk-entry { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 12px; margin-bottom: 8px; }
+  .risk-entry-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+  .risk-entry-type { font-size: 12px; font-weight: 700; }
+  .risk-entry-time { font-size: 11px; color: var(--text-muted); }
+  .risk-entry-text { font-size: 13px; color: var(--text-muted); }
+  .type-tag-risk { color: #fca5a5; }
+  .type-tag-suggested { color: #fcd34d; }
+  .type-tag-employed { color: #86efac; }
+
+  /* ── Modals ── */
+  .modal-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,.7); z-index: 100;
+    display: flex; align-items: flex-end; justify-content: center;
+    animation: fadeIn .2s ease;
+  }
+  .modal {
+    background: var(--surface); border-radius: 20px 20px 0 0; width: 100%; max-width: 600px;
+    max-height: 92vh; overflow-y: auto; padding: 20px 20px calc(20px + var(--safe-bottom));
+    animation: slideUp .25s ease;
+  }
+  .modal-handle { width: 40px; height: 4px; background: var(--border); border-radius: 2px; margin: 0 auto 16px; }
+  .modal-title { font-size: 18px; font-weight: 700; margin-bottom: 16px; }
+  @keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }
+  @keyframes slideUp { from { transform: translateY(40px); opacity: 0 } to { transform: translateY(0); opacity: 1 } }
+
+  /* ── Toast ── */
+  #toast {
+    position: fixed; bottom: calc(80px + var(--safe-bottom)); left: 50%; transform: translateX(-50%) translateY(20px);
+    background: #1e293b; border: 1px solid var(--border); border-radius: 8px;
+    padding: 10px 18px; font-size: 14px; white-space: nowrap;
+    opacity: 0; transition: all .3s; pointer-events: none; z-index: 200;
+  }
+  #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  /* ── Empty states ── */
+  .empty { text-align: center; padding: 40px 20px; color: var(--text-muted); }
+  .empty svg { width: 48px; height: 48px; margin: 0 auto 12px; display: block; opacity: .3; }
+  .empty p { font-size: 14px; }
+
+  /* ── Back button ── */
+  .back-btn { background: none; border: none; color: var(--primary); font-size: 15px; cursor: pointer; padding: 4px 0; display: flex; align-items: center; gap: 4px; }
+  .back-btn svg { width: 18px; height: 18px; }
+
+  /* ── Delete btn ── */
+  .delete-btn { background: none; border: none; color: var(--danger); cursor: pointer; padding: 4px; }
+  .delete-btn svg { width: 16px; height: 16px; }
+
+  /* ── Scrollable content ── */
+  #content::-webkit-scrollbar { width: 4px; }
+  #content::-webkit-scrollbar-track { background: transparent; }
+  #content::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+  /* ── Setup screen ── */
+  #setup-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 60vh; text-align: center; padding: 20px; }
+  #setup-screen h2 { font-size: 24px; font-weight: 800; margin-bottom: 8px; }
+  #setup-screen p { color: var(--text-muted); margin-bottom: 24px; font-size: 15px; }
+  #setup-screen .logo { font-size: 56px; margin-bottom: 16px; }
+
+  .chevron { color: var(--text-muted); }
+  select option { background: var(--surface); }
+  .triage-P1 { background: #7f1d1d; }
+  .triage-P2 { background: #78350f; }
+  .triage-P3 { background: #14532d; }
+  .triage-P0 { background: #1e1b4b; }
+
+  .inline-flex { display: inline-flex; align-items: center; gap: 6px; }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="header">
+    <div style="flex:1">
+      <div id="header-title" style="font-size:17px;font-weight:700">PRF Manager</div>
+      <div id="header-sub" style="font-size:12px;color:var(--text-muted)">Loading…</div>
+    </div>
+    <button id="header-action" style="display:none" class="btn btn-ghost" onclick="headerAction()"></button>
+  </div>
+  <div id="content"></div>
+  <nav id="footer-nav">
+    <button class="nav-btn active" id="nav-days" onclick="navigate('days')">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      Days
+    </button>
+    <button class="nav-btn" id="nav-project" onclick="navigate('project')">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>
+      Project
+    </button>
+    <button class="nav-btn" id="nav-export" onclick="navigate('export')">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Export
+    </button>
+    <button class="nav-btn" id="nav-settings" onclick="navigate('settings')">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      Settings
+    </button>
+  </nav>
+</div>
+<div id="toast"></div>
+
+<script>
+// ══════════════════════════════════════════
+//  STORAGE
+// ══════════════════════════════════════════
+const DB = {
+  get: k => { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : null; } catch { return null; } },
+  set: (k, v) => localStorage.setItem(k, JSON.stringify(v)),
+  del: k => localStorage.removeItem(k)
+};
+
+function getProject() { return DB.get('project') || null; }
+function saveProject(p) { DB.set('project', p); }
+
+function getDays() { return DB.get('days') || []; }
+function saveDays(d) { DB.set('days', d); }
+
+function getPRFs() { return DB.get('prfs') || []; }
+function savePRFs(p) { DB.set('prfs', p); }
+
+function getRiskLogs() { return DB.get('risklogs') || []; }
+function saveRiskLogs(r) { DB.set('risklogs', r); }
+
+// ══════════════════════════════════════════
+//  STATE
+// ══════════════════════════════════════════
+let currentView = 'days';
+let currentDay = null;
+let editingPRF = null;
+let editingRiskLog = null;
+
+// ══════════════════════════════════════════
+//  BOOT
+// ══════════════════════════════════════════
+window.addEventListener('load', () => {
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(() => {});
+  const project = getProject();
+  if (!project) {
+    renderSetup();
+  } else {
+    updateHeader();
+    navigate('days');
+  }
+});
+
+function updateHeader() {
+  const project = getProject();
+  if (!project) return;
+  document.getElementById('header-title').textContent = project.name || 'PRF Manager';
+  document.getElementById('header-sub').textContent = project.location || '';
+}
+
+function navigate(view) {
+  currentView = view;
+  document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+  const btn = document.getElementById('nav-' + view);
+  if (btn) btn.classList.add('active');
+  document.getElementById('header-action').style.display = 'none';
+  currentDay = null;
+  switch (view) {
+    case 'days': renderDays(); break;
+    case 'project': renderProject(); break;
+    case 'export': renderExport(); break;
+    case 'settings': renderSettings(); break;
+  }
+}
+
+// ══════════════════════════════════════════
+//  SETUP SCREEN
+// ══════════════════════════════════════════
+function renderSetup() {
+  document.getElementById('footer-nav').style.display = 'none';
+  document.getElementById('header-action').style.display = 'none';
+  document.getElementById('header-title').textContent = 'PRF Manager';
+  document.getElementById('header-sub').textContent = 'Event Medical';
+  document.getElementById('content').innerHTML = `
+    <div id="setup-screen">
+      <div class="logo">🏥</div>
+      <h2>Set up your Event</h2>
+      <p>Enter your event details to get started.<br>All data is stored locally on this device.</p>
+      <div class="gdpr-notice" style="text-align:left;max-width:440px;width:100%">
+        <strong>🔒 GDPR Notice:</strong> All patient data is stored exclusively on this device. Nothing is transmitted externally. You are the data controller. Delete all data in Settings when the event ends.
+      </div>
+      <div style="width:100%;max-width:440px">
+        <div class="field"><label>Event / Operation Name *</label><input id="s-name" placeholder="e.g. Festival Medical 2025" /></div>
+        <div class="field"><label>Location</label><input id="s-location" placeholder="e.g. Glastonbury, UK" /></div>
+        <div class="field-row">
+          <div class="field"><label>Start Date *</label><input id="s-start" type="date" /></div>
+          <div class="field"><label>End Date *</label><input id="s-end" type="date" /></div>
+        </div>
+        <div class="field"><label>Lead Clinician</label><input id="s-clinician" placeholder="Your name" /></div>
+        <div class="field"><label>Organisation / Team</label><input id="s-org" placeholder="e.g. St John Ambulance" /></div>
+        <button class="btn btn-primary btn-full" onclick="setupSave()" style="margin-top:8px">
+          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="20,6 9,17 4,12"/></svg>
+          Create Event
+        </button>
+      </div>
+    </div>`;
+  const today = new Date().toISOString().split('T')[0];
+  document.getElementById('s-start').value = today;
+  document.getElementById('s-end').value = today;
+}
+
+function setupSave() {
+  const name = document.getElementById('s-name').value.trim();
+  const start = document.getElementById('s-start').value;
+  const end = document.getElementById('s-end').value;
+  if (!name || !start || !end) { toast('Please fill in required fields'); return; }
+  const project = {
+    name, location: document.getElementById('s-location').value.trim(),
+    start, end,
+    clinician: document.getElementById('s-clinician').value.trim(),
+    org: document.getElementById('s-org').value.trim(),
+    notes: '', createdAt: new Date().toISOString()
+  };
+  saveProject(project);
+  // Auto-generate days
+  const days = [];
+  let d = new Date(start + 'T00:00:00');
+  const endD = new Date(end + 'T00:00:00');
+  let i = 1;
+  while (d <= endD) {
+    days.push({ id: genId(), dayNum: i, date: d.toISOString().split('T')[0], label: 'Day ' + i });
+    d.setDate(d.getDate() + 1); i++;
+  }
+  saveDays(days);
+  document.getElementById('footer-nav').style.display = 'flex';
+  updateHeader();
+  navigate('days');
+  toast('Event created!');
+}
+
+// ══════════════════════════════════════════
+//  DAYS VIEW
+// ══════════════════════════════════════════
+function renderDays() {
+  const days = getDays();
+  const prfs = getPRFs();
+  const risks = getRiskLogs();
+  if (currentDay) { renderDayDetail(currentDay); return; }
+
+  document.getElementById('content').innerHTML = `
+    <div class="section-title">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      Event Days
+    </div>
+    ${days.length === 0 ? '<div class="empty"><p>No days configured</p></div>' : ''}
+    ${days.map(day => {
+      const dayPRFs = prfs.filter(p => p.dayId === day.id);
+      const dayRisks = risks.filter(r => r.dayId === day.id);
+      return `
+      <div class="day-item" onclick="openDay('${day.id}')">
+        <div class="day-item-left">
+          <div class="day-label">${escHtml(day.label)}</div>
+          <div class="day-date">${formatDate(day.date)}</div>
+        </div>
+        <div class="day-item-right">
+          <span class="day-count">${dayPRFs.length} PRF${dayPRFs.length !== 1 ? 's' : ''}</span>
+          ${dayRisks.length > 0 ? `<span style="font-size:11px;color:var(--warning)">⚠ ${dayRisks.length} risk log${dayRisks.length !== 1 ? 's' : ''}</span>` : ''}
+          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="width:16px;height:16px;color:var(--text-muted)"><polyline points="9,18 15,12 9,6"/></svg>
+        </div>
+      </div>`;
+    }).join('')}`;
+}
+
+function openDay(dayId) {
+  const days = getDays();
+  currentDay = days.find(d => d.id === dayId);
+  renderDayDetail(currentDay);
+}
+
+function renderDayDetail(day) {
+  const prfs = getPRFs().filter(p => p.dayId === day.id);
+  const risks = getRiskLogs().filter(r => r.dayId === day.id);
+
+  document.getElementById('content').innerHTML = `
+    <button class="back-btn" onclick="goBack()" style="margin-bottom:14px">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="15,18 9,12 15,6"/></svg>
+      All Days
+    </button>
+
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div>
+        <div style="font-size:20px;font-weight:800">${escHtml(day.label)}</div>
+        <div style="font-size:13px;color:var(--text-muted)">${formatDate(day.date)}</div>
+      </div>
+      <button class="btn btn-warning" onclick="exportDayPDF('${day.id}')">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        PDF
+      </button>
+    </div>
+
+    <!-- PRFs Section -->
+    <div class="section-title">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>
+      Patient Report Forms
+    </div>
+    <button class="btn btn-primary btn-full" onclick="openPRFForm('${day.id}')">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      New PRF
+    </button>
+
+    ${prfs.length === 0 ? '<div class="empty" style="padding:20px"><svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/></svg><p>No PRFs yet for this day</p></div>' : ''}
+    ${prfs.map(prf => renderPRFItem(prf)).join('')}
+
+    <!-- Medical Risk Log Section -->
+    <div class="section-title" style="margin-top:24px">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+      Medical Risk Log
+    </div>
+    <button class="btn btn-ghost btn-full" onclick="openRiskLogForm('${day.id}')">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      Add Risk / Plan Entry
+    </button>
+
+    ${risks.length === 0 ? '<div class="empty" style="padding:20px"><svg fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg><p>No risk log entries for this day</p></div>' : ''}
+    ${risks.map(r => renderRiskEntry(r)).join('')}
+    <div style="height:20px"></div>`;
+}
+
+function renderPRFItem(prf) {
+  const triageColors = { P1: 'badge-red', P2: 'badge-amber', P3: 'badge-green', 'P0/Dead': 'badge-blue' };
+  const tc = prf.triage ? (triageColors[prf.triage] || 'badge-blue') : '';
+  return `
+  <div class="prf-item" onclick="openPRFDetail('${prf.id}')">
+    <div class="prf-item-header">
+      <div>
+        <div class="prf-item-name">${escHtml(prf.patientName || 'Unknown Patient')}</div>
+        <div class="prf-item-complaint">${escHtml(prf.chiefComplaint || 'No complaint recorded')}</div>
+      </div>
+      <div style="text-align:right">
+        <div class="prf-item-time">${prf.incidentTime || '--:--'}</div>
+        ${prf.triage ? `<span class="badge ${tc}" style="margin-top:4px;display:inline-block">${prf.triage}</span>` : ''}
+      </div>
+    </div>
+  </div>`;
+}
+
+function renderRiskEntry(r) {
+  const typeClass = { 'Medical Risk': 'type-tag-risk', 'Suggested Plan': 'type-tag-suggested', 'Employed Plan': 'type-tag-employed' };
+  return `
+  <div class="risk-entry">
+    <div class="risk-entry-header">
+      <span class="risk-entry-type ${typeClass[r.type] || ''}">${escHtml(r.type)}</span>
+      <div style="display:flex;align-items:center;gap:8px">
+        <span class="risk-entry-time">${r.time || ''}</span>
+        <button class="delete-btn" onclick="deleteRiskEntry('${r.id}',event)">
+          <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3,6 5,6 21,6"/><path d="M19,6v14a2,2,0,0,1-2,2H7a2,2,0,0,1-2-2V6m3,0V4a2,2,0,0,1,2-2h4a2,2,0,0,1,2,2v2"/></svg>
+        </button>
+      </div>
+    </div>
+    <div class="risk-entry-text">${escHtml(r.text)}</div>
+    ${r.linked ? `<div style="font-size:11px;color:var(--text-muted);margin-top:4px">Linked: ${escHtml(r.linked)}</div>` : ''}
+  </div>`;
+}
+
+// ══════════════════════════════════════════
+//  PRF FORM
+// ══════════════════════════════════════════
+function openPRFForm(dayId, prfId) {
+  const existing = prfId ? getPRFs().find(p => p.id === prfId) : null;
+  const now = new Date();
+  const timeNow = now.toTimeString().slice(0,5);
+  const v = existing || {};
+
+  const html = `
+    <div class="modal-overlay" id="prf-modal" onclick="closeModalOnBg(event,'prf-modal')">
+      <div class="modal">
+        <div class="modal-handle"></div>
+        <div class="modal-title">${existing ? 'Edit PRF' : 'New PRF'}</div>
+
+        <div class="card-title">Patient Details</div>
+        <div class="field"><label>Patient Name *</label><input id="f-name" value="${escAttr(v.patientName||'')}" placeholder="Full name" /></div>
+        <div class="field-row">
+          <div class="field"><label>Date of Birth</label><input id="f-dob" type="date" value="${escAttr(v.dob||'')}" /></div>
+          <div class="field"><label>Gender</label>
+            <select id="f-gender">
+              <option value="">Select</option>
+              ${['Male','Female','Non-binary','Prefer not to say'].map(g=>`<option value="${g}" ${v.gender===g?'selected':''}>${g}</option>`).join('')}
+            </select>
+          </div>
+        </div>
+        <div class="field"><label>Address / Postcode</label><input id="f-address" value="${escAttr(v.address||'')}" placeholder="Optional" /></div>
+
+        <div class="card-title" style="margin-top:16px">Incident</div>
+        <div class="field-row">
+          <div class="field"><label>Date</label><input id="f-date" type="date" value="${escAttr(v.incidentDate || new Date().toISOString().split('T')[0])}" /></div>
+          <div class="field"><label>Time</label><input id="f-time" type="time" value="${escAttr(v.incidentTime||timeNow)}" /></div>
+        </div>
+        <div class="field"><label>Location / Scene</label><input id="f-location" value="${escAttr(v.location||'')}" placeholder="Where did this occur?" /></div>
+        <div class="field"><label>Chief Complaint *</label><input id="f-complaint" value="${escAttr(v.chiefComplaint||'')}" placeholder="e.g. Chest pain, laceration, collapse" /></div>
+        <div class="field"><label>Mechanism / History</label><textarea id="f-history" placeholder="How did it happen? Relevant history?">${escHtml(v.history||'')}</textarea></div>
+
+        <div class="card-title" style="margin-top:16px">Triage</div>
+        <div class="field">
+          <select id="f-triage">
+            <option value="">Not assigned</option>
+            ${['P1 (Immediate)','P2 (Urgent)','P3 (Delayed)','P0/Dead'].map(t=>{ const val=t.split(' ')[0]; return `<option value="${val}" ${v.triage===val?'selected':''}>${t}</option>`; }).join('')}
+          </select>
+        </div>
+
+        <div class="card-title" style="margin-top:16px">Vitals</div>
+        <div class="vitals-grid">
+          ${[['f-bp','BP (mmHg)','e.g. 120/80'],['f-hr','HR (bpm)','e.g. 78'],['f-rr','RR (/min)','e.g. 16'],['f-spo2','SpO₂ (%)','e.g. 98'],['f-gcs','GCS','e.g. 15'],['f-temp','Temp (°C)','e.g. 37.2'],['f-bm','BM (mmol/L)','e.g. 5.4'],['f-pupils','Pupils','e.g. PEARL 4mm']].map(([id,lbl,ph])=>`
+          <div class="vital-box"><label>${lbl}</label><input id="${id}" value="${escAttr(v.vitals?.[id.slice(2)]||'')}" placeholder="${ph}" /></div>`).join('')}
+        </div>
+
+        <div class="card-title" style="margin-top:16px">Assessment & Treatment</div>
+        <div class="field"><label>Clinical Assessment / Findings</label><textarea id="f-assessment" placeholder="Examination findings, diagnosis/impression…">${escHtml(v.assessment||'')}</textarea></div>
+        <div class="field"><label>Treatment Given</label><textarea id="f-treatment" placeholder="Interventions, procedures…">${escHtml(v.treatment||'')}</textarea></div>
+        <div class="field"><label>Medications Given</label><textarea id="f-meds" placeholder="Drug, dose, route, time…">${escHtml(v.medications||'')}</textarea></div>
+
+        <div class="card-title" style="margin-top:16px">Handover</div>
+        <div class="field"><label>Handover To</label><input id="f-handover-to" value="${escAttr(v.handoverTo||'')}" placeholder="e.g. Paramedic crew, A&E" /></div>
+        <div class="field"><label>Handover Time</label><input id="f-handover-time" type="time" value="${escAttr(v.handoverTime||'')}" /></div>
+        <div class="field"><label>Outcome</label>
+          <select id="f-outcome">
+            ${['','Discharged on scene','Transported to hospital','Refused transport','Referred to GP','No further action','Other'].map(o=>`<option value="${o}" ${v.outcome===o?'selected':''}>${o||'Select outcome'}</option>`).join('')}
+          </select>
+        </div>
+
+        <div class="card-title" style="margin-top:16px">Additional Notes</div>
+        <div class="field"><textarea id="f-notes" placeholder="Any additional clinical notes, observations or context…" style="min-height:100px">${escHtml(v.notes||'')}</textarea></div>
+
+        <div class="card-title" style="margin-top:16px">Clinician</div>
+        <div class="field-row">
+          <div class="field"><label>Name</label><input id="f-clinician" value="${escAttr(v.clinicianName || (getProject()||{}).clinician || '')}" /></div>
+          <div class="field"><label>Role / Grade</label><input id="f-role" value="${escAttr(v.clinicianRole||'')}" placeholder="e.g. EMT, Paramedic" /></div>
+        </div>
+
+        <div style="display:flex;gap:10px;margin-top:8px">
+          <button class="btn btn-ghost" style="flex:1" onclick="closeModal('prf-modal')">Cancel</button>
+          <button class="btn btn-primary" style="flex:2" onclick="savePRF('${dayId}','${prfId||''}')">
+            <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="20,6 9,17 4,12"/></svg>
+            Save PRF
+          </button>
+        </div>
+      </div>
+    </div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+
+function savePRF(dayId, prfId) {
+  const name = document.getElementById('f-name').value.trim();
+  const complaint = document.getElementById('f-complaint').value.trim();
+  if (!name) { toast('Patient name is required'); return; }
+  const vitals = {};
+  ['bp','hr','rr','spo2','gcs','temp','bm','pupils'].forEach(k => {
+    const el = document.getElementById('f-' + k);
+    if (el) vitals[k] = el.value.trim();
+  });
+  const prf = {
+    id: prfId || genId(),
+    dayId,
+    patientName: name,
+    dob: document.getElementById('f-dob').value,
+    gender: document.getElementById('f-gender').value,
+    address: document.getElementById('f-address').value.trim(),
+    incidentDate: document.getElementById('f-date').value,
+    incidentTime: document.getElementById('f-time').value,
+    location: document.getElementById('f-location').value.trim(),
+    chiefComplaint: complaint,
+    history: document.getElementById('f-history').value.trim(),
+    triage: document.getElementById('f-triage').value,
+    vitals,
+    assessment: document.getElementById('f-assessment').value.trim(),
+    treatment: document.getElementById('f-treatment').value.trim(),
+    medications: document.getElementById('f-meds').value.trim(),
+    handoverTo: document.getElementById('f-handover-to').value.trim(),
+    handoverTime: document.getElementById('f-handover-time').value,
+    outcome: document.getElementById('f-outcome').value,
+    notes: document.getElementById('f-notes').value.trim(),
+    clinicianName: document.getElementById('f-clinician').value.trim(),
+    clinicianRole: document.getElementById('f-role').value.trim(),
+    createdAt: prfId ? (getPRFs().find(p=>p.id===prfId)||{}).createdAt : new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
+  const prfs = getPRFs();
+  const idx = prfs.findIndex(p => p.id === prf.id);
+  if (idx >= 0) prfs[idx] = prf; else prfs.push(prf);
+  savePRFs(prfs);
+  closeModal('prf-modal');
+  toast('PRF saved');
+  renderDayDetail(getDays().find(d => d.id === dayId));
+}
+
+// ══════════════════════════════════════════
+//  PRF DETAIL VIEW
+// ══════════════════════════════════════════
+function openPRFDetail(prfId) {
+  const prf = getPRFs().find(p => p.id === prfId);
+  if (!prf) return;
+  const day = getDays().find(d => d.id === prf.dayId);
+  const triageColors = { P1: '#7f1d1d', P2: '#78350f', P3: '#14532d', 'P0/Dead': '#1e1b4b' };
+  const tc = prf.triage ? (triageColors[prf.triage] || '') : '';
+
+  const html = `
+    <div class="modal-overlay" id="prf-detail-modal" onclick="closeModalOnBg(event,'prf-detail-modal')">
+      <div class="modal">
+        <div class="modal-handle"></div>
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:16px">
+          <div>
+            <div style="font-size:20px;font-weight:800">${escHtml(prf.patientName||'Unknown')}</div>
+            <div style="font-size:13px;color:var(--text-muted)">${prf.incidentDate || ''} ${prf.incidentTime ? 'at ' + prf.incidentTime : ''}</div>
+          </div>
+          ${prf.triage ? `<span class="badge" style="background:${tc};padding:4px 12px;font-size:13px">${prf.triage}</span>` : ''}
+        </div>
+
+        ${detailRow('Chief Complaint', prf.chiefComplaint)}
+        ${detailRow('Date of Birth', prf.dob ? formatDate(prf.dob) : '')}
+        ${detailRow('Gender', prf.gender)}
+        ${detailRow('Address', prf.address)}
+        ${detailRow('Scene Location', prf.location)}
+        ${detailRow('History / Mechanism', prf.history)}
+
+        ${prf.vitals && Object.values(prf.vitals).some(v=>v) ? `
+        <div class="card-title" style="margin-top:12px">Vitals</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:12px">
+          ${[['BP','bp'],['HR','hr'],['RR','rr'],['SpO₂','spo2'],['GCS','gcs'],['Temp','temp'],['BM','bm'],['Pupils','pupils']].filter(([,k])=>prf.vitals[k]).map(([l,k])=>`
+          <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px">
+            <div style="font-size:11px;color:var(--text-muted)">${l}</div>
+            <div style="font-size:15px;font-weight:600">${escHtml(prf.vitals[k])}</div>
+          </div>`).join('')}
+        </div>` : ''}
+
+        ${detailRow('Clinical Assessment', prf.assessment)}
+        ${detailRow('Treatment Given', prf.treatment)}
+        ${detailRow('Medications', prf.medications)}
+        ${detailRow('Handover To', prf.handoverTo)}
+        ${detailRow('Handover Time', prf.handoverTime)}
+        ${detailRow('Outcome', prf.outcome)}
+        ${detailRow('Additional Notes', prf.notes)}
+        ${detailRow('Clinician', [prf.clinicianName, prf.clinicianRole].filter(Boolean).join(' — '))}
+
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-top:16px">
+          <button class="btn btn-ghost" onclick="closeModal('prf-detail-modal')">Close</button>
+          <button class="btn btn-primary" onclick="closeModal('prf-detail-modal');openPRFForm('${prf.dayId}','${prf.id}')">Edit</button>
+          <button class="btn btn-danger" onclick="confirmDeletePRF('${prf.id}')">Delete</button>
+        </div>
+      </div>
+    </div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+
+function detailRow(label, value) {
+  if (!value) return '';
+  return `<div style="margin-bottom:8px"><div style="font-size:12px;color:var(--text-muted);margin-bottom:2px">${label}</div><div style="font-size:14px">${escHtml(value)}</div></div>`;
+}
+
+function confirmDeletePRF(prfId) {
+  if (!confirm('Delete this PRF? This cannot be undone.')) return;
+  const prfs = getPRFs().filter(p => p.id !== prfId);
+  savePRFs(prfs);
+  closeModal('prf-detail-modal');
+  toast('PRF deleted');
+  if (currentDay) renderDayDetail(currentDay);
+}
+
+// ══════════════════════════════════════════
+//  RISK LOG FORM
+// ══════════════════════════════════════════
+function openRiskLogForm(dayId) {
+  const now = new Date().toTimeString().slice(0,5);
+  const html = `
+    <div class="modal-overlay" id="risk-modal" onclick="closeModalOnBg(event,'risk-modal')">
+      <div class="modal">
+        <div class="modal-handle"></div>
+        <div class="modal-title">Add Risk / Plan Entry</div>
+        <div class="field">
+          <label>Entry Type *</label>
+          <select id="r-type">
+            <option value="Medical Risk">⚠ Medical Risk</option>
+            <option value="Suggested Plan">💡 Suggested Plan</option>
+            <option value="Employed Plan">✅ Employed Plan</option>
+          </select>
+        </div>
+        <div class="field"><label>Time</label><input id="r-time" type="time" value="${now}" /></div>
+        <div class="field"><label>Description *</label><textarea id="r-text" placeholder="Describe the risk, suggested or employed plan in detail…" style="min-height:120px"></textarea></div>
+        <div class="field"><label>Linked PRF / Patient (optional)</label><input id="r-linked" placeholder="Patient name or PRF reference" /></div>
+        <div style="display:flex;gap:10px;margin-top:8px">
+          <button class="btn btn-ghost" style="flex:1" onclick="closeModal('risk-modal')">Cancel</button>
+          <button class="btn btn-primary" style="flex:2" onclick="saveRiskLog('${dayId}')">Save Entry</button>
+        </div>
+      </div>
+    </div>`;
+  document.body.insertAdjacentHTML('beforeend', html);
+}
+
+function saveRiskLog(dayId) {
+  const text = document.getElementById('r-text').value.trim();
+  if (!text) { toast('Description is required'); return; }
+  const entry = {
+    id: genId(), dayId,
+    type: document.getElementById('r-type').value,
+    time: document.getElementById('r-time').value,
+    text, linked: document.getElementById('r-linked').value.trim(),
+    createdAt: new Date().toISOString()
+  };
+  const logs = getRiskLogs();
+  logs.push(entry);
+  saveRiskLogs(logs);
+  closeModal('risk-modal');
+  toast('Entry saved');
+  if (currentDay) renderDayDetail(currentDay);
+}
+
+function deleteRiskEntry(id, e) {
+  e.stopPropagation();
+  if (!confirm('Delete this entry?')) return;
+  saveRiskLogs(getRiskLogs().filter(r => r.id !== id));
+  toast('Entry deleted');
+  if (currentDay) renderDayDetail(currentDay);
+}
+
+// ══════════════════════════════════════════
+//  PROJECT VIEW
+// ══════════════════════════════════════════
+function renderProject() {
+  const project = getProject();
+  if (!project) { navigate('days'); return; }
+  const prfs = getPRFs();
+  const risks = getRiskLogs();
+  const days = getDays();
+
+  document.getElementById('content').innerHTML = `
+    <div class="section-title">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14,2 14,8 20,8"/></svg>
+      Project Overview
+    </div>
+
+    <div class="card">
+      <div class="card-title">Event Details</div>
+      <div class="field"><label>Event Name</label><input id="p-name" value="${escAttr(project.name||'')}" /></div>
+      <div class="field"><label>Location</label><input id="p-location" value="${escAttr(project.location||'')}" /></div>
+      <div class="field-row">
+        <div class="field"><label>Start Date</label><input id="p-start" type="date" value="${escAttr(project.start||'')}" /></div>
+        <div class="field"><label>End Date</label><input id="p-end" type="date" value="${escAttr(project.end||'')}" /></div>
+      </div>
+      <div class="field"><label>Lead Clinician</label><input id="p-clinician" value="${escAttr(project.clinician||'')}" /></div>
+      <div class="field"><label>Organisation</label><input id="p-org" value="${escAttr(project.org||'')}" /></div>
+      <button class="btn btn-primary btn-full" onclick="saveProjectDetails()">Save Changes</button>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Event Notes</div>
+      <div class="field"><textarea id="p-notes" placeholder="Overall event notes, briefing details, standing orders…" style="min-height:120px">${escHtml(project.notes||'')}</textarea></div>
+      <button class="btn btn-ghost btn-full" onclick="saveProjectNotes()">Save Notes</button>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Statistics</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px">
+        ${[['Days',days.length],['Total PRFs',prfs.length],['Risk Entries',risks.length]].map(([l,n])=>`
+        <div style="background:var(--surface2);border-radius:8px;padding:12px;text-align:center">
+          <div style="font-size:24px;font-weight:800;color:var(--primary)">${n}</div>
+          <div style="font-size:12px;color:var(--text-muted)">${l}</div>
+        </div>`).join('')}
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Daily Risk Logs by Day</div>
+      ${days.map(day => {
+        const dayRisks = risks.filter(r => r.dayId === day.id);
+        return `
+        <div style="margin-bottom:14px">
+          <div style="font-weight:700;margin-bottom:6px">${escHtml(day.label)} — ${formatDate(day.date)}</div>
+          ${dayRisks.length === 0 ? `<div style="font-size:13px;color:var(--text-muted)">No entries</div>` :
+          dayRisks.map(r => renderRiskEntry(r)).join('')}
+        </div>`;
+      }).join('')}
+      ${days.length === 0 ? '<div style="font-size:13px;color:var(--text-muted)">No days configured</div>' : ''}
+    </div>
+
+    <div style="height:20px"></div>`;
+}
+
+function saveProjectDetails() {
+  const p = getProject();
+  p.name = document.getElementById('p-name').value.trim();
+  p.location = document.getElementById('p-location').value.trim();
+  p.start = document.getElementById('p-start').value;
+  p.end = document.getElementById('p-end').value;
+  p.clinician = document.getElementById('p-clinician').value.trim();
+  p.org = document.getElementById('p-org').value.trim();
+  saveProject(p);
+  updateHeader();
+  toast('Project updated');
+}
+
+function saveProjectNotes() {
+  const p = getProject();
+  p.notes = document.getElementById('p-notes').value.trim();
+  saveProject(p);
+  toast('Notes saved');
+}
+
+// ══════════════════════════════════════════
+//  EXPORT VIEW
+// ══════════════════════════════════════════
+function renderExport() {
+  const days = getDays();
+  const prfs = getPRFs();
+  document.getElementById('content').innerHTML = `
+    <div class="section-title">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Export
+    </div>
+
+    <div class="gdpr-notice">
+      <strong>🔒 GDPR Reminder:</strong> Exported PDFs contain patient identifiable information. Handle as clinical records. Secure transmission and storage is your responsibility.
+    </div>
+
+    <div class="card">
+      <div class="card-title">Full Event Export</div>
+      <button class="btn btn-success btn-full" onclick="exportFullPDF()">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Export All PRFs (Full Event)
+      </button>
+      <button class="btn btn-ghost btn-full" onclick="exportProjectJSON()">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="16,18 22,12 16,6"/><polyline points="8,6 2,12 8,18"/></svg>
+        Export Raw Data (JSON backup)
+      </button>
+    </div>
+
+    <div class="card">
+      <div class="card-title">Export by Day</div>
+      ${days.map(day => {
+        const count = prfs.filter(p => p.dayId === day.id).length;
+        return `
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border)">
+          <div>
+            <div style="font-weight:600">${escHtml(day.label)}</div>
+            <div style="font-size:13px;color:var(--text-muted)">${formatDate(day.date)} · ${count} PRF${count!==1?'s':''}</div>
+          </div>
+          <button class="btn btn-warning" onclick="exportDayPDF('${day.id}')">
+            <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7,10 12,15 17,10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            PDF
+          </button>
+        </div>`;
+      }).join('')}
+      ${days.length === 0 ? '<div style="font-size:14px;color:var(--text-muted)">No days configured</div>' : ''}
+    </div>
+    <div style="height:20px"></div>`;
+}
+
+// ══════════════════════════════════════════
+//  SETTINGS VIEW
+// ══════════════════════════════════════════
+function renderSettings() {
+  document.getElementById('content').innerHTML = `
+    <div class="section-title">
+      <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+      Settings
+    </div>
+
+    <div class="card">
+      <div class="card-title">Import Data</div>
+      <p style="font-size:13px;color:var(--text-muted);margin-bottom:10px">Restore a previous JSON backup.</p>
+      <input type="file" id="import-file" accept=".json" style="margin-bottom:10px" onchange="importJSON(event)" />
+    </div>
+
+    <div class="card" style="border-color:#334155">
+      <div class="card-title" style="color:var(--warning)">⚠ GDPR — Data Management</div>
+      <p style="font-size:13px;color:var(--text-muted);margin-bottom:12px">All data is stored locally on this device only. No data leaves this device unless you export it. Export and securely store all data before deleting.</p>
+      <button class="btn btn-danger btn-full" onclick="deleteAllData()">
+        <svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3,6 5,6 21,6"/><path d="M19,6v14a2,2,0,0,1-2,2H7a2,2,0,0,1-2-2V6m3,0V4a2,2,0,0,1,2-2h4a2,2,0,0,1,2,2v2"/></svg>
+        Delete ALL Data (End of Event)
+      </button>
+    </div>
+
+    <div class="card">
+      <div class="card-title">About</div>
+      <p style="font-size:13px;color:var(--text-muted)">PRF Manager v1.0<br>Offline-first PWA. All data stored in browser localStorage.<br><br>Install to home screen for best offline experience.</p>
+    </div>
+    <div style="height:20px"></div>`;
+}
+
+function deleteAllData() {
+  if (!confirm('⚠ Delete ALL data including all PRFs and risk logs? This cannot be undone. Make sure you have exported everything first.')) return;
+  if (!confirm('Are you absolutely sure? This will delete all patient data permanently.')) return;
+  localStorage.clear();
+  toast('All data deleted');
+  location.reload();
+}
+
+function importJSON(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const data = JSON.parse(ev.target.result);
+      if (data.project) saveProject(data.project);
+      if (data.days) saveDays(data.days);
+      if (data.prfs) savePRFs(data.prfs);
+      if (data.risklogs) saveRiskLogs(data.risklogs);
+      toast('Data imported successfully');
+      updateHeader();
+      navigate('days');
+    } catch { toast('Invalid backup file'); }
+  };
+  reader.readAsText(file);
+}
+
+// ══════════════════════════════════════════
+//  PDF EXPORT
+// ══════════════════════════════════════════
+function exportDayPDF(dayId) {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const day = getDays().find(d => d.id === dayId);
+  const prfs = getPRFs().filter(p => p.dayId === dayId);
+  const risks = getRiskLogs().filter(r => r.dayId === dayId);
+  const project = getProject();
+  const W = 210; const MARGIN = 14;
+
+  let y = buildPDFHeader(doc, project, day, W, MARGIN);
+
+  // Summary table
+  doc.setFontSize(11); doc.setFont(undefined, 'bold');
+  doc.text('PATIENT REPORT FORMS', MARGIN, y); y += 6;
+  if (prfs.length === 0) {
+    doc.setFont(undefined, 'normal'); doc.setFontSize(10);
+    doc.text('No PRFs recorded for this day.', MARGIN, y); y += 10;
+  } else {
+    doc.autoTable({
+      startY: y,
+      head: [['#','Name','DOB','Time','Chief Complaint','Triage','Outcome']],
+      body: prfs.map((p,i) => [i+1, p.patientName||'', p.dob ? formatDate(p.dob) : '', p.incidentTime||'', p.chiefComplaint||'', p.triage||'', p.outcome||'']),
+      styles: { fontSize: 8, cellPadding: 2 },
+      headStyles: { fillColor: [30,41,59], textColor: [241,245,249], fontStyle: 'bold' },
+      alternateRowStyles: { fillColor: [248,250,252] },
+      margin: { left: MARGIN, right: MARGIN },
+      theme: 'grid'
+    });
+    y = doc.lastAutoTable.finalY + 10;
+  }
+
+  // Individual PRFs
+  prfs.forEach((prf, i) => {
+    if (y > 240) { doc.addPage(); y = 20; }
+    doc.setFontSize(12); doc.setFont(undefined, 'bold');
+    doc.setFillColor(30,41,59); doc.rect(MARGIN, y-4, W - MARGIN*2, 8, 'F');
+    doc.setTextColor(241,245,249);
+    doc.text(`PRF ${i+1} — ${prf.patientName || 'Unknown'}`, MARGIN+2, y+1);
+    doc.setTextColor(0,0,0);
+    y += 8;
+
+    const rows = [
+      ['Date of Birth', prf.dob ? formatDate(prf.dob) : '', 'Gender', prf.gender || ''],
+      ['Incident Date', prf.incidentDate || '', 'Time', prf.incidentTime || ''],
+      ['Location', prf.location || '', 'Triage', prf.triage || ''],
+      ['Chief Complaint', prf.chiefComplaint || '', '', ''],
+      ['History / Mechanism', prf.history || '', '', ''],
+    ];
+    if (prf.vitals) {
+      const v = prf.vitals;
+      rows.push(['BP', v.bp||'', 'HR', v.hr||'']);
+      rows.push(['RR', v.rr||'', 'SpO₂', v.spo2||'']);
+      rows.push(['GCS', v.gcs||'', 'Temp', v.temp||'']);
+      rows.push(['BM', v.bm||'', 'Pupils', v.pupils||'']);
+    }
+    rows.push(
+      ['Assessment', prf.assessment || '', '', ''],
+      ['Treatment', prf.treatment || '', '', ''],
+      ['Medications', prf.medications || '', '', ''],
+      ['Handover To', prf.handoverTo || '', 'Time', prf.handoverTime || ''],
+      ['Outcome', prf.outcome || '', '', ''],
+      ['Additional Notes', prf.notes || '', '', ''],
+      ['Clinician', prf.clinicianName || '', 'Role', prf.clinicianRole || ''],
+    );
+
+    doc.autoTable({
+      startY: y,
+      body: rows,
+      styles: { fontSize: 8, cellPadding: 2 },
+      columnStyles: { 0: { fontStyle: 'bold', cellWidth: 32 }, 2: { fontStyle: 'bold', cellWidth: 32 } },
+      alternateRowStyles: { fillColor: [248,250,252] },
+      margin: { left: MARGIN, right: MARGIN },
+      theme: 'grid'
+    });
+    y = doc.lastAutoTable.finalY + 8;
+  });
+
+  // Risk log
+  if (risks.length > 0) {
+    if (y > 220) { doc.addPage(); y = 20; }
+    doc.setFontSize(12); doc.setFont(undefined, 'bold'); doc.setTextColor(0,0,0);
+    doc.setFillColor(120,53,15); doc.rect(MARGIN, y-4, W - MARGIN*2, 8, 'F');
+    doc.setTextColor(255,255,255);
+    doc.text('MEDICAL RISK LOG', MARGIN+2, y+1);
+    doc.setTextColor(0,0,0);
+    y += 8;
+    doc.autoTable({
+      startY: y,
+      head: [['Time', 'Type', 'Description', 'Linked']],
+      body: risks.map(r => [r.time||'', r.type||'', r.text||'', r.linked||'']),
+      styles: { fontSize: 8, cellPadding: 2, overflow: 'linebreak' },
+      columnStyles: { 2: { cellWidth: 90 } },
+      headStyles: { fillColor: [120,53,15], textColor: [255,255,255] },
+      margin: { left: MARGIN, right: MARGIN },
+      theme: 'grid'
+    });
+    y = doc.lastAutoTable.finalY + 6;
+  }
+
+  buildPDFFooter(doc, project);
+  const fname = `PRF_${(project?.name||'Event').replace(/\s+/g,'_')}_${day?.label?.replace(/\s+/g,'_') || 'Day'}_${day?.date||''}.pdf`;
+  doc.save(fname);
+  toast('PDF downloaded');
+}
+
+function exportFullPDF() {
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+  const days = getDays();
+  const prfs = getPRFs();
+  const risks = getRiskLogs();
+  const project = getProject();
+  const W = 210; const MARGIN = 14;
+  let first = true;
+
+  days.forEach(day => {
+    if (!first) doc.addPage();
+    first = false;
+    const dayPRFs = prfs.filter(p => p.dayId === day.id);
+    const dayRisks = risks.filter(r => r.dayId === day.id);
+    let y = buildPDFHeader(doc, project, day, W, MARGIN);
+
+    doc.setFontSize(11); doc.setFont(undefined, 'bold'); doc.setTextColor(0,0,0);
+    doc.text(`PATIENT REPORT FORMS — ${day.label?.toUpperCase()}`, MARGIN, y); y += 6;
+
+    if (dayPRFs.length === 0) {
+      doc.setFont(undefined, 'normal'); doc.setFontSize(10);
+      doc.text('No PRFs for this day.', MARGIN, y); y += 10;
+    } else {
+      doc.autoTable({
+        startY: y,
+        head: [['#','Name','Time','Chief Complaint','Triage','Outcome']],
+        body: dayPRFs.map((p,i) => [i+1, p.patientName||'', p.incidentTime||'', p.chiefComplaint||'', p.triage||'', p.outcome||'']),
+        styles: { fontSize: 8, cellPadding: 2 },
+        headStyles: { fillColor: [30,41,59], textColor: [241,245,249] },
+        margin: { left: MARGIN, right: MARGIN },
+        theme: 'grid'
+      });
+      y = doc.lastAutoTable.finalY + 8;
+    }
+
+    if (dayRisks.length > 0) {
+      if (y > 230) { doc.addPage(); y = 20; }
+      doc.setFontSize(10); doc.setFont(undefined, 'bold');
+      doc.text('RISK LOG', MARGIN, y); y += 5;
+      doc.autoTable({
+        startY: y,
+        head: [['Time','Type','Description']],
+        body: dayRisks.map(r => [r.time||'', r.type||'', r.text||'']),
+        styles: { fontSize: 8, cellPadding: 2 },
+        headStyles: { fillColor: [120,53,15], textColor: [255,255,255] },
+        margin: { left: MARGIN, right: MARGIN },
+        theme: 'grid'
+      });
+    }
+    buildPDFFooter(doc, project);
+  });
+
+  const fname = `PRF_FULL_${(project?.name||'Event').replace(/\s+/g,'_')}_${new Date().toISOString().split('T')[0]}.pdf`;
+  doc.save(fname);
+  toast('Full export downloaded');
+}
+
+function buildPDFHeader(doc, project, day, W, MARGIN) {
+  doc.setFillColor(15,23,42);
+  doc.rect(0, 0, W, 22, 'F');
+  doc.setTextColor(241,245,249);
+  doc.setFontSize(14); doc.setFont(undefined, 'bold');
+  doc.text(project?.name || 'Event PRF Report', MARGIN, 10);
+  doc.setFontSize(9); doc.setFont(undefined, 'normal');
+  doc.text(`${day ? day.label + ' — ' + formatDate(day.date) : ''}   |   ${project?.location||''}   |   ${project?.clinician||''}   |   ${project?.org||''}`, MARGIN, 17);
+  doc.setTextColor(0,0,0);
+  return 30;
+}
+
+function buildPDFFooter(doc, project) {
+  const pages = doc.internal.getNumberOfPages();
+  for (let i = 1; i <= pages; i++) {
+    doc.setPage(i);
+    doc.setFontSize(7); doc.setTextColor(150,150,150);
+    doc.text(`Generated: ${new Date().toLocaleString()} — CONFIDENTIAL — Handle as clinical records — ${project?.org||''}`, 14, 290);
+    doc.text(`Page ${i} of ${pages}`, 196, 290, { align: 'right' });
+  }
+}
+
+function exportProjectJSON() {
+  const data = {
+    project: getProject(), days: getDays(),
+    prfs: getPRFs(), risklogs: getRiskLogs(),
+    exportedAt: new Date().toISOString()
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `PRF_Backup_${(data.project?.name||'Event').replace(/\s+/g,'_')}_${new Date().toISOString().split('T')[0]}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  toast('JSON backup downloaded');
+}
+
+// ══════════════════════════════════════════
+//  HELPERS
+// ══════════════════════════════════════════
+function goBack() { currentDay = null; renderDays(); }
+
+function closeModal(id) {
+  const el = document.getElementById(id);
+  if (el) el.remove();
+}
+
+function closeModalOnBg(e, id) {
+  if (e.target.id === id) closeModal(id);
+}
+
+function headerAction() {}
+
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 2500);
+}
+
+function genId() { return Date.now().toString(36) + Math.random().toString(36).slice(2); }
+
+function escHtml(s) {
+  if (!s) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function escAttr(s) { return escHtml(s); }
+
+function formatDate(d) {
+  if (!d) return '';
+  try {
+    const dt = new Date(d + 'T00:00:00');
+    return dt.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+  } catch { return d; }
+}
+</script>
+</body>
+</html>
